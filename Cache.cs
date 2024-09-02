@@ -1,4 +1,4 @@
-﻿namespace CacheImplementation;
+namespace OOD;
 
 public class Cache
 {
@@ -21,6 +21,7 @@ public class Cache
     public void Put(string key, string value)
     {
         _storage.Add(key, value);
+        _evictionPolicy.AddToMapper(key, value);
         _evictionPolicy.UpdateLRU(key);
     }
 }
@@ -30,7 +31,6 @@ public interface IStorage
     string Get(string key);
     void Add(string key, string value);
 }
-
 public class Storage : IStorage
 {
     private readonly Dictionary<string, string> _storage;
@@ -56,10 +56,16 @@ public class Storage : IStorage
         }
         _storage[key] = value;
     }
+
+    public void remove(string key)
+    {
+        _storage.Remove(key);
+    }
 }
 
 public interface IEvictionPolicy
 {
+    void AddToMapper(string key, string value);
     void UpdateLRU(string key);
     void EvictKey();
 }
@@ -75,6 +81,11 @@ public class EvictionPolicy : IEvictionPolicy
         _mapper = new Dictionary<string, DLLNode>();
     }
 
+    public void AddToMapper(string key, string value)
+    {
+        DLLNode Node = new DLLNode(value);
+        _mapper[key] = Node;
+    }
     public void UpdateLRU(string key)
     {
         // Unlink current Node
@@ -92,8 +103,8 @@ public class EvictionPolicy : IEvictionPolicy
 public class DLLNode
 {
     internal string value;
-    internal DLLNode next;
-    internal DLLNode prev;
+    internal DLLNode? next;
+    internal DLLNode? prev;
 
     public DLLNode(string value)
     {
@@ -112,8 +123,8 @@ public class DLLNode
 
 class DLL
 {
-    internal DLLNode head = null;
-    internal DLLNode tail = null;
+    internal DLLNode? head = null;
+    internal DLLNode? tail = null;
 
     public void AddToTail(DLLNode node)
     {
