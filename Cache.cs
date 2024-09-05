@@ -1,163 +1,141 @@
-namespace OOD;
-
-public class Cache
+public class Program
 {
-    private readonly IStorage _storage;
-    private readonly IEvictionPolicy _evictionPolicy;
-
-    public Cache(IStorage storage, IEvictionPolicy evictionPolicy)
+    static void Main(String[] args)
     {
-        _storage = storage;
-        _evictionPolicy = evictionPolicy;
-    }
+        List<int> list = new List<int>();
+        LRUCache cache = new LRUCache(2);
+        list.Add(cache.Get(2));
+        cache.Put(2,6);
+        list.Add(cache.Get(1));
+        cache.Put(1, 5);
+        cache.Put(1, 2);
+        list.Add(cache.Get(1));
+        list.Add(cache.Get(2));
 
-    public string Get(string key)
-    {
-        string value = _storage.Get(key);
-        _evictionPolicy.UpdateLRU(key);
-        return value;
-    }
+        foreach (int i in list)
+            Console.Write(i + " ");
 
-    public void Put(string key, string value)
-    {
-        _storage.Add(key, value);
-        _evictionPolicy.AddToMapper(key, value);
-        _evictionPolicy.UpdateLRU(key);
     }
 }
 
-public interface IStorage
+
+public class LRUCache
 {
-    string Get(string key);
-    void Add(string key, string value);
-}
-public class Storage : IStorage
-{
-    private readonly Dictionary<string, string> _storage;
+    Dictionary<int, DLLNode> map;
+    private readonly DLL _dll;
     private readonly int _capacity;
-
-    public Storage(int capacity)
+    public LRUCache(int capacity)
     {
-        _storage = new Dictionary<string, string>();
+        _dll = new DLL();
+        map = new Dictionary<int, DLLNode>();
         _capacity = capacity;
     }
 
-    public string Get(string key)
+    public int Get(int key)
     {
-        return _storage.ContainsKey(key) ? _storage[key] : null;
-    }
-
-    public void Add(string key, string value)
-    {
-        if (_storage.Count == _capacity)
+        if (map.ContainsKey(key))
         {
-            // Implement eviction logic here (call EvictionPolicy.EvictKey())
-            Console.WriteLine("Capacity of Cache is full");
+            // run eviction policy to update the recently used node in DLL
+            var node = _dll.DetachNode(map[key]);
+            _dll.AddToHead(node);
+
+            // return the value of key
+            return map[key].value;
         }
-        _storage[key] = value;
+        else
+        {
+            return -1;
+        }
     }
 
-    public void remove(string key)
+    public void Put(int key, int value)
     {
-        _storage.Remove(key);
-    }
-}
 
-public interface IEvictionPolicy
-{
-    void AddToMapper(string key, string value);
-    void UpdateLRU(string key);
-    void EvictKey();
-}
+        // if key, already exits get the value, and update it
+        if (map.ContainsKey(key))
+        {
+            Get(key);
+            map[key].value = value;
+        }
+        else
+        {
 
-public class EvictionPolicy : IEvictionPolicy
-{
-    private readonly DLL _dLL;
-    private readonly Dictionary<string, DLLNode> _mapper;
+            if (map.Count == _capacity)
+            {
+                // remove lru from dll
+                var node = _dll.DeleteTailNode();
 
-    public EvictionPolicy()
-    {
-        _dLL = new DLL();
-        _mapper = new Dictionary<string, DLLNode>();
-    }
+                // remove lru from hashmap
+                map.Remove(node.key);
 
-    public void AddToMapper(string key, string value)
-    {
-        DLLNode Node = new DLLNode(value);
-        _mapper[key] = Node;
-    }
-    public void UpdateLRU(string key)
-    {
-        // Unlink current Node
-        _dLL.DetachNode(_mapper[key]);
-        // Add to Tail
-        _dLL.AddToTail(_mapper[key]);
-    }
+            }
 
-    public void EvictKey()
-    {
-        _dLL.EvictKey();
+            // else add new value in new Node
+            map[key] = new DLLNode(key, value);
+
+            // add in DLL
+            _dll.AddToHead(map[key]);
+        }
+
     }
 }
 
 public class DLLNode
 {
-    internal string value;
-    internal DLLNode? next;
-    internal DLLNode? prev;
+    public int key;
+    public int value;
+    public DLLNode next;
+    public DLLNode prev;
 
-    public DLLNode(string value)
+    public DLLNode(int key, int value)
     {
+        this.key = key;
         this.value = value;
         next = null;
         prev = null;
     }
 
-    public DLLNode(string value, DLLNode next, DLLNode prev)
+    public DLLNode(int key, int value,DLLNode next, DLLNode prev)
     {
+        this.key = key;
         this.value = value;
         this.next = next;
         this.prev = prev;
     }
 }
 
-class DLL
+public class DLL
 {
-    internal DLLNode? head = null;
-    internal DLLNode? tail = null;
+    public DLLNode head = new DLLNode(-1,-1);
+    public DLLNode tail = new DLLNode(-1,-1);
 
-    public void AddToTail(DLLNode node)
+    public DLL()
     {
-        if (head == null)
-        {
-            head = node;
-            tail = node;
-        }
-        else
-        {
-            tail.next = node;
-            tail = node;
-        }
+        head.next = tail;
+        tail.prev = head;
     }
 
-    public void DetachNode(DLLNode node)
+    public void AddToHead(DLLNode node)
     {
-        if (head != null)
-        {
-            return;
-        }
+        node.next = head.next;
+        head.next.prev = node;
+        head.next = node;
+        node.prev = head;
+    }
 
-        node.next.prev = node.prev;
+    public DLLNode DetachNode(DLLNode node)
+    {
         node.prev.next = node.next;
+        node.next.prev = node.prev;
         node.next = null;
         node.prev = null;
 
+        return node;
     }
 
-    public void EvictKey()
+    public DLLNode DeleteTailNode()
     {
-        head = head.next;
-        head.prev.next = null;
-        head.prev = null;
+        return DetachNode(tail.prev);
     }
+
 }
